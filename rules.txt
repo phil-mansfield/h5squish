@@ -1,0 +1,50 @@
+conversion rules
+----------------
+
+dset type is float
+    new type is set:
+        new type is float:
+            dset gets converted to new type
+        new type is int:
+		    accuracy is not set:
+    	        dset is quantised over the range [offset, offset+span] with dx = span/int max (with off-by-one issues handled)
+			accuracy is set:
+			    dset is quantised over range [offset, span+offset] with dx ~ accuracy (handling off-by-one issues)
+
+   new type isn't set, but accuracy is:
+       dset is quantised over range [offset, span+offset] with dx ~ accuracy (handling off by one issues) and the new type is set to the smallest integer that can handle this
+
+   else:
+       error
+
+
+dset is type int:
+   new type is int:
+       convert to new type
+   else:
+       error
+
+dset is type string
+     new type is string:
+	     no-op
+	 new type is int large enough to hold span:
+	     lookup table is created and dset is converted into indices into this table lookup table should be sorted by frequency so that common strings all have low indices (this will be relevant later)
+
+lossy conversions (from float -> int, but not float64 -> float32) store offset and dx as attributes of the dset to aid with decoding
+
+the string conversions store an attribute, lookup, which is the values the integers map onto.
+
+quantisation bins should align to the [offset, offset+span] range, so there's no offset between the end of the last bin and the the end of the range
+
+decoding rules
+--------------
+
+h5squish exports a funciton decode(h5_file, f5_field_name) that does the following:
+
+if field type isn't int or doesn't have offset and dx attributes:
+   return dset as-is
+if field type is int and has offset + dx attributes:
+   dequantise to a random point within the bin
+if field type is int and has a lookup attribute:
+   pull values from the lookup table
+
